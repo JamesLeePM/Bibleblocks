@@ -3,7 +3,7 @@
 BibleBlocks is a Minecraft-style voxel builder made for joyful, faith-filled creativity.  
 Build worlds, place Bible heroes, and explore stories of courage, trust, and hope.
 
-**Repository:** [github.com/jamesleepm/bibleblocks](https://github.com/jamesleepm/bibleblocks)
+**Repository:** [github.com/JamesLeePM/Bibleblocks](https://github.com/JamesLeePM/Bibleblocks)
 
 ## Tech
 
@@ -83,4 +83,4 @@ Add a `LICENSE` file if you want to specify terms for others; until then, all ri
 
 ## Contributing
 
-Issues and pull requests are welcome on [the GitHub repository](https://github.com/jamesleepm/bibleblocks).
+Issues and pull requests are welcome on [the GitHub repository](https://github.com/JamesLeePM/Bibleblocks).
