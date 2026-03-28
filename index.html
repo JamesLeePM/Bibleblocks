@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BibleBlocks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1510;
+      }
+      #game-canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        touch-action: none;
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+      }
+      #loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
+        background: linear-gradient(180deg, #2d2418 0%, #1a1510 50%, #0d0a08 100%);
+        transition: opacity 0.6s ease, visibility 0.6s ease;
+      }
+      #loading-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .loading-cross {
+        width: 72px;
+        height: 96px;
+        position: relative;
+      }
+      .loading-cross::before,
+      .loading-cross::after {
+        content: '';
+        position: absolute;
+        background: linear-gradient(180deg, #d4af37, #8b6914);
+        border-radius: 2px;
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+      }
+      .loading-cross::before {
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+        width: 14px;
+        height: 100%;
+      }
+      .loading-cross::after {
+        top: 28%;
+        left: 0;
+        width: 100%;
+        height: 14px;
+        margin-top: -7px;
+      }
+      .loading-title {
+        font-family: 'Press Start 2P', monospace;
+        font-size: clamp(0.75rem, 3vw, 1.25rem);
+        color: #f5e6c8;
+        text-align: center;
+        text-shadow: 0 2px 0 #5c4a2a, 0 0 24px rgba(212, 175, 55, 0.35);
+        line-height: 1.6;
+      }
+      .loading-hint {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.5rem;
+        color: #8a7a60;
+        margin-top: 0.5rem;
+      }
+
+      #loading-progress-wrap{
+        width: min(520px, 88vw);
+        border: 3px solid rgba(139,105,20,0.65);
+        border-radius: 10px;
+        padding: 0.55rem;
+        background: rgba(0,0,0,0.25);
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.35);
+      }
+      #loading-progress-bar{
+        width: 0%;
+        height: 18px;
+        border-radius: 8px;
+        background: linear-gradient(90deg, #ffd54f, #c9a227);
+        box-shadow: 0 0 22px rgba(255,213,79,0.25);
+      }
+      #loading-verse{
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.45rem;
+        color: #c4b59a;
+        text-align:center;
+        line-height: 1.7;
+        margin-top: -0.15rem;
+        max-width: min(64ch, 90vw);
+      }
+
+      .character-selector {
+        position: fixed;
+        left: 50%;
+        bottom: 6.5rem;
+        transform: translateX(-50%);
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.85rem 1.1rem;
+        max-width: min(96vw, 28rem);
+        background: linear-gradient(180deg, rgba(45, 36, 24, 0.94), rgba(26, 21, 16, 0.97));
+        border: 3px solid #8b6914;
+        border-radius: 4px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+      }
+      .character-selector__title {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.65rem;
+        color: #f5e6c8;
+        text-align: center;
+        text-shadow: 0 1px 0 #3d3020;
+      }
+      .character-selector__desc {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.45rem;
+        line-height: 1.7;
+        color: #c4b59a;
+        text-align: center;
+      }
+      .character-selector__nav {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+      }
+      .character-selector__btn {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.55rem;
+        padding: 0.45rem 0.65rem;
+        cursor: pointer;
+        color: #1a1510;
+        background: linear-gradient(180deg, #e8d5a8, #c4a574);
+        border: 2px solid #5c4a2a;
+        border-radius: 2px;
+      }
+      .character-selector__btn:active {
+        transform: translateY(1px);
+      }
+      .character-selector__walk,
+      .character-selector__place {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.45rem;
+        padding: 0.5rem 0.85rem;
+        cursor: pointer;
+        border-radius: 2px;
+        border: 2px solid #5c4a2a;
+      }
+      .character-selector__walk {
+        color: #f5e6c8;
+        background: linear-gradient(180deg, #4a6a4a, #2d4a2d);
+      }
+      .character-selector__place {
+        color: #1a1510;
+        background: linear-gradient(180deg, #ffd54f, #c9a227);
+      }
+
+      #crosshair {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 22px;
+        height: 22px;
+        z-index: 50;
+        display: none;
+        pointer-events: none;
+      }
+
+      /* Main menu / overlays must win over the WebGL layer */
+      body.bibleblocks-menu-mode #game-canvas {
+        pointer-events: none;
+      }
+      body.bibleblocks-menu-mode .character-selector,
+      body.bibleblocks-menu-mode .hotbar {
+        display: none !important;
+      }
+      #crosshair::before,
+      #crosshair::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        background: #ffd54f;
+        box-shadow: 0 0 14px rgba(255, 213, 79, 0.35);
+      }
+      #crosshair::before {
+        width: 100%;
+        height: 2px;
+        transform: translate(-50%, -50%);
+      }
+      #crosshair::after {
+        width: 2px;
+        height: 100%;
+        transform: translate(-50%, -50%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-screen" aria-busy="true" aria-label="Loading BibleBlocks">
+      <div class="loading-cross" aria-hidden="true"></div>
+      <h1 class="loading-title">BibleBlocks</h1>
+      <p class="loading-hint">Loading...</p>
+      <div id="loading-progress-wrap" aria-hidden="true">
+        <div id="loading-progress-bar"></div>
+      </div>
+      <div id="loading-verse">In the beginning, God created... — Genesis 1:1</div>
+    </div>
+    <canvas id="game-canvas"></canvas>
+    <div id="crosshair" aria-hidden="true"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
