@@ -1,9 +1,21 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  root: '.',
-  publicDir: 'public',
+  base: './',
+  build: {
+    sourcemap: true,
+    outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ['three'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+    target: 'es2015',
+  },
   server: {
-    open: true,
+    host: true,
   },
 });

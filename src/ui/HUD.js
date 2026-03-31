@@ -222,6 +222,8 @@ export class HUD {
     ensureStyle();
     this._getWorldName = opts.getWorldName ?? (() => 'World');
     this._getCharacterId = opts.getCharacterId ?? (() => 'david');
+    this._getCreativeMode = opts.getCreativeMode ?? (() => true);
+    this._onToggleCreativeMode = opts.onToggleCreativeMode ?? null;
     this._onResume = opts.onResume ?? (() => {});
     this._onChangeWorld = opts.onChangeWorld ?? (() => {});
     this._onChangeCharacter = opts.onChangeCharacter ?? (() => {});
@@ -360,7 +362,26 @@ export class HUD {
       this._onMainMenu();
     });
 
-    buttons.append(resume, changeWorld, changeCharacter, mainMenu);
+    buttons.append(resume, changeWorld, changeCharacter);
+
+    if (this._onToggleCreativeMode) {
+      const creativeBtn = document.createElement('button');
+      creativeBtn.type = 'button';
+      creativeBtn.className = 'pause-btn pause-btn--paper';
+      const syncCreativeLabel = () => {
+        creativeBtn.textContent = this._getCreativeMode()
+          ? 'Mode: Creative (instant break, infinite blocks)'
+          : 'Mode: Survival (hold to mine, gather blocks)';
+      };
+      syncCreativeLabel();
+      creativeBtn.addEventListener('click', () => {
+        this._onToggleCreativeMode();
+        syncCreativeLabel();
+      });
+      buttons.appendChild(creativeBtn);
+    }
+
+    buttons.appendChild(mainMenu);
     panel.append(title, buttons);
     overlay.appendChild(panel);
 

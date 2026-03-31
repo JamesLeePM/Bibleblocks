@@ -27,3 +27,7 @@ npm-debug.log*
 # Optional tooling
 .cursor/
 coverage/
+
+# Capacitor (native projects — add after `npx cap add ios` if you want to track them)
+# ios/
+# android/

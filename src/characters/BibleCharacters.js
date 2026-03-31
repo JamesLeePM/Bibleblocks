@@ -551,12 +551,11 @@ export class CharacterSelector {
   }
 
   /**
-   * @param {number} timeMs
+   * @param {number} timeSec — seconds (e.g. performance.now() / 1000)
    */
-  update(timeMs) {
-    VoxelCharacter.updateTweens(timeMs);
-    if (this._current && this._walkOn) {
-      this._current.stepWalk(timeMs);
+  update(timeSec) {
+    if (this._current) {
+      this._current.update(timeSec);
     }
   }
 

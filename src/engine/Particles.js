@@ -4,15 +4,28 @@ const GOLD = 0xffd54f;
 
 function colorForBlockType(type) {
   const map = {
-    1: 0xe8d5a8, // sand
-    2: 0x9e9e9e, // stone
-    3: 0x7a5545, // wood
-    4: 0x43a047, // leaf
-    5: 0x1e88e5, // water
-    6: 0xffc107, // gold
-    7: 0xbcaaa4, // bread
-    8: 0x5cb85c, // grass
-    9: 0x6d4c41, // dirt
+    1: 0xe8d5a8,
+    2: 0x9e9e9e,
+    3: 0x7a5545,
+    4: 0x43a047,
+    5: 0x1e88e5,
+    6: 0xffc107,
+    7: 0xbcaaa4,
+    8: 0x5cb85c,
+    9: 0x6d4c41,
+    10: 0x757575,
+    11: 0xa1887f,
+    12: 0xb71c1c,
+    13: 0xb3e5fc,
+    14: 0xd7ccc8,
+    15: 0xeceff1,
+    16: 0xbcaaa4,
+    17: 0x795548,
+    18: 0x78909c,
+    19: 0x90a4ae,
+    20: 0x6d4c41,
+    21: 0x8bc34a,
+    22: 0xffca28,
   };
   return map[type] ?? GOLD;
 }
@@ -23,7 +36,6 @@ export class Particles {
     /** @type {Array<{mesh:THREE.Mesh, vel:THREE.Vector3, life:number, age:number, gravity:number, spin:number}>} */
     this._particles = [];
     this._boxGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-    this._update = this._update.bind(this);
   }
 
   _spawnCube({ x, y, z, color, count = 8, speed = 2.0, life = 0.6 }) {

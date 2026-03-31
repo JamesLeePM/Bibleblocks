@@ -1,10 +1,14 @@
 import * as THREE from 'three';
-import { Tween, Easing, update as tweenUpdate } from '@tweenjs/tween.js';
 
 export { VOXEL, addVoxelBox, addVoxelCylinder } from './VoxelPrimitives.js';
 
+/** Linear interpolation for manual animation (requestAnimationFrame). */
+export function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
 /**
- * Humanoid: parts are separate groups for animation.
+ * Humanoid: parts are separate groups. Manual math only (no skeletal or clip-based animation APIs).
  */
 export class VoxelCharacter {
   constructor() {
@@ -31,38 +35,22 @@ export class VoxelCharacter {
     this.group.add(this.armR);
     this.group.add(this.head);
 
-    /** @type {import('@tweenjs/tween.js').Tween<{ bob: number }> | null} */
-    this._idleTween = null;
-    this._idleHeadY = 0;
-    this._idleBob = { bob: 0 };
-
+    /** Rest Y for vertical bob (world space). */
+    this._baseGroupY = null;
+    this._idlePlaying = false;
     this._walking = false;
-    this._walkPhase = 0;
   }
 
   stopIdle() {
-    if (!this._idleTween) return;
-    this._idleTween.stop();
-    this._idleTween = null;
-    this.head.position.y = this._idleHeadY;
+    this._idlePlaying = false;
+    if (this._baseGroupY !== null) {
+      this.group.position.y = this._baseGroupY;
+    }
   }
 
-  /**
-   * @param {number} [timeMs]
-   */
-  startIdleAnimation(timeMs = performance.now()) {
-    this.stopIdle();
-    this._idleHeadY = this.head.position.y;
-    this._idleBob.bob = 0;
-    this._idleTween = new Tween(this._idleBob, true)
-      .to({ bob: 1 }, 850)
-      .yoyo(true)
-      .repeat(Infinity)
-      .easing(Easing.Sinusoidal.InOut)
-      .onUpdate(() => {
-        this.head.position.y = this._idleHeadY + this._idleBob.bob * 0.035;
-      })
-      .start(timeMs);
+  startIdleAnimation() {
+    this._baseGroupY = this.group.position.y;
+    this._idlePlaying = true;
   }
 
   /**
@@ -79,24 +67,27 @@ export class VoxelCharacter {
   }
 
   /**
-   * @param {number} timeMs
+   * Manual animation only. `time` is seconds (e.g. performance.now() / 1000).
+   * Idle: vertical bob on the root group. Walk: limb swing from time.
+   * @param {number} time
    */
-  stepWalk(timeMs) {
-    if (!this._walking) return;
-    this._walkPhase = timeMs * 0.007;
-    const swing = 0.42;
-    const p = this._walkPhase;
-    this.armL.rotation.x = Math.sin(p) * swing;
-    this.armR.rotation.x = -Math.sin(p) * swing;
-    this.legL.rotation.x = -Math.sin(p) * swing;
-    this.legR.rotation.x = Math.sin(p) * swing;
-  }
+  update(time) {
+    if (this._walking) {
+      if (this._baseGroupY !== null) {
+        this.group.position.y = this._baseGroupY;
+      }
+      const p = time * 7;
+      const swing = 0.42;
+      this.armL.rotation.x = Math.sin(p) * swing;
+      this.armR.rotation.x = -Math.sin(p) * swing;
+      this.legL.rotation.x = -Math.sin(p) * swing;
+      this.legR.rotation.x = Math.sin(p) * swing;
+      return;
+    }
 
-  /**
-   * @param {number} timeMs
-   */
-  static updateTweens(timeMs) {
-    tweenUpdate(timeMs);
+    if (this._idlePlaying && this._baseGroupY !== null) {
+      this.group.position.y = this._baseGroupY + Math.sin(time * 2) * 0.05;
+    }
   }
 
   /**

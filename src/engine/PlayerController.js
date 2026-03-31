@@ -108,11 +108,13 @@ export class PlayerController {
    * @param {THREE.PerspectiveCamera} opts.camera
    * @param {import('./VoxelWorld.js').VoxelWorld} opts.world
    * @param {THREE.Scene} opts.scene
-   * @param {() => number} opts.getSelectedBlockType
-   * @param {(x:number,y:number,z:number,type:number) => void} opts.placeBlockAt
-   * @param {(x:number,y:number,z:number) => void} opts.breakBlockAt
-   * @param {{ x:number, y:number, z:number }} opts.spawn
-   */
+ * @param {() => number} opts.getSelectedBlockType
+ * @param {(x:number,y:number,z:number,type:number) => void} opts.placeBlockAt
+ * @param {(x:number,y:number,z:number) => void} opts.breakBlockAt
+ * @param {{ x:number, y:number, z:number }} opts.spawn
+ * @param {() => boolean} [opts.isCreative]
+ * @param {(type:number) => number} [opts.getBreakTimeSeconds]
+ */
   constructor(opts) {
     this.canvas = opts.canvas;
     this.camera = opts.camera;
@@ -121,6 +123,8 @@ export class PlayerController {
     this.getSelectedBlockType = opts.getSelectedBlockType;
     this.placeBlockAt = opts.placeBlockAt;
     this.breakBlockAt = opts.breakBlockAt;
+    this.isCreative = opts.isCreative ?? (() => true);
+    this.getBreakTimeSeconds = opts.getBreakTimeSeconds ?? (() => 0.25);
 
     this.pos = new THREE.Vector3(opts.spawn.x, opts.spawn.y, opts.spawn.z); // feet position
 
@@ -150,6 +154,10 @@ export class PlayerController {
 
     this.keys = new Set();
     this.jumpPressed = false;
+    /** Mobile / tablet: movement stick (-1..1), x = strafe, y = forward. */
+    this._touchAxes = new THREE.Vector2(0, 0);
+    this._touchJumpPressed = false;
+    this._touchGameplayActive = false;
 
     this.maxInteractDist = 8;
     this.raycastHit = null;
@@ -159,14 +167,30 @@ export class PlayerController {
     this._lastBreakAt = 0;
     this._lastPlaceAt = 0;
 
+    /** @type {{ x:number,y:number,z:number,type:number } | null} */
+    this._miningAt = null;
+    this._miningProgress = 0;
+    this._breakHeld = false;
+
     this._mouseLookSensitivity = 0.0022;
+    this._touchLookSensitivity = 0.0032;
+    /** Canvas touch look (iOS has no pointer lock; deltas applied in update). */
+    this._touchLookStartX = 0;
+    this._touchLookStartY = 0;
+    this._touchCanvasAccX = 0;
+    this._touchCanvasAccY = 0;
+    this._canvasTouchLookId = null;
+    this._touchDevice =
+      typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
     this._raycastTarget = { x: 0, y: 0, z: 0 };
 
     this._onJump = opts.onJump ?? (() => {});
     this._onWalkTick = opts.onWalkTick ?? (() => {});
     this._nextWalkTickAt = 0;
 
-    this._highlight = this._createHighlightMesh();
+    const hl = this._createHighlightMesh();
+    this._highlight = hl.line;
+    this._highlightMat = hl.mat;
     this.scene.add(this._highlight);
 
     this._bindEvents();
@@ -177,18 +201,29 @@ export class PlayerController {
     const geo = new THREE.BoxGeometry(1, 1, 1);
     const edges = new THREE.EdgesGeometry(geo);
     const mat = new THREE.LineBasicMaterial({
-      color: 0x7CFF6B,
+      color: 0x7cff6b,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.88,
     });
     const line = new THREE.LineSegments(edges, mat);
     line.visible = false;
-    return line;
+    return { line, mat };
+  }
+
+  /** Touch / mouse: hold to mine in survival. */
+  setBreakHeld(v) {
+    this._breakHeld = !!v;
+    if (!this._breakHeld) {
+      this._miningAt = null;
+      this._miningProgress = 0;
+      if (this._highlightMat) this._highlightMat.color.setHex(0x7cff6b);
+    }
   }
 
   _bindEvents() {
-    // Pointer lock
+    // Pointer lock — desktop only (iOS WebKit has no usable pointer lock API).
     this.canvas.addEventListener('click', async () => {
+      if (this._touchDevice) return;
       if (this.pointerLocked) return;
       if (this.canvas.requestPointerLock) this.canvas.requestPointerLock();
     });
@@ -206,6 +241,50 @@ export class PlayerController {
       this.pitch -= e.movementY * this._mouseLookSensitivity;
       this.pitch = clamp(this.pitch, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01);
     });
+
+    // Virtual look on canvas for touch / iOS (no Pointer Lock).
+    this.canvas.addEventListener(
+      'touchstart',
+      (e) => {
+        if (!this._touchGameplayActive || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        this._canvasTouchLookId = t.identifier;
+        this._touchLookStartX = t.clientX;
+        this._touchLookStartY = t.clientY;
+      },
+      { passive: true }
+    );
+    this.canvas.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!this._touchGameplayActive || this._canvasTouchLookId == null) return;
+        const t = Array.from(e.touches).find(
+          (x) => x.identifier === this._canvasTouchLookId
+        );
+        if (!t) return;
+        e.preventDefault();
+        const dx = t.clientX - this._touchLookStartX;
+        const dy = t.clientY - this._touchLookStartY;
+        this._touchLookStartX = t.clientX;
+        this._touchLookStartY = t.clientY;
+        this._touchCanvasAccX += dx;
+        this._touchCanvasAccY += dy;
+      },
+      { passive: false }
+    );
+    const endCanvasTouchLook = (e) => {
+      if (
+        this._canvasTouchLookId == null ||
+        ![...e.changedTouches].some((c) => c.identifier === this._canvasTouchLookId)
+      ) {
+        return;
+      }
+      this._canvasTouchLookId = null;
+      this._touchCanvasAccX = 0;
+      this._touchCanvasAccY = 0;
+    };
+    this.canvas.addEventListener('touchend', endCanvasTouchLook);
+    this.canvas.addEventListener('touchcancel', endCanvasTouchLook);
 
     // Keyboard
     window.addEventListener('keydown', (e) => {
@@ -228,15 +307,20 @@ export class PlayerController {
     // Mouse buttons (break/place)
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this.canvas.addEventListener('mousedown', (e) => {
-      if (!this.pointerLocked) return;
-      if (!this.raycastHit) return;
+      if (!this.pointerLocked || this._touchDevice) return;
 
       const now = performance.now();
       if (e.button === 0) {
-        if (now - this._lastBreakAt < this.breakCooldownMs) return;
-        this._lastBreakAt = now;
-        this.breakBlockAt(this.raycastHit.x, this.raycastHit.y, this.raycastHit.z);
+        if (this.isCreative()) {
+          if (!this.raycastHit) return;
+          if (now - this._lastBreakAt < this.breakCooldownMs) return;
+          this._lastBreakAt = now;
+          this.breakBlockAt(this.raycastHit.x, this.raycastHit.y, this.raycastHit.z);
+        } else {
+          this.setBreakHeld(true);
+        }
       } else if (e.button === 2) {
+        if (!this.raycastHit) return;
         if (now - this._lastPlaceAt < this.placeCooldownMs) return;
         this._lastPlaceAt = now;
         const sel = this.getSelectedBlockType();
@@ -247,6 +331,12 @@ export class PlayerController {
         if (sel !== 0) this.placeBlockAt(ax, ay, az, sel);
       }
     });
+    const releaseBreak = (e) => {
+      if (e.button === 0) this.setBreakHeld(false);
+    };
+    this.canvas.addEventListener('mouseup', releaseBreak);
+    window.addEventListener('mouseup', releaseBreak);
+    window.addEventListener('blur', () => this.setBreakHeld(false));
   }
 
   _currentHeight() {
@@ -279,8 +369,66 @@ export class PlayerController {
     if (a) move.addScaledVector(right, -1);
     if (d) move.add(right);
 
+    if (this._touchAxes.lengthSq() > 1e-6) {
+      const tx = this._touchAxes.x;
+      const tz = this._touchAxes.y;
+      move.addScaledVector(right, tx);
+      move.addScaledVector(fwd, tz);
+    }
+
     if (move.lengthSq() > 0) move.normalize();
     return move;
+  }
+
+  setTouchGameplayActive(on) {
+    this._touchGameplayActive = !!on;
+    if (!on) {
+      this._touchAxes.set(0, 0);
+      this._touchJumpPressed = false;
+    }
+  }
+
+  setTouchAxes(x, y) {
+    this._touchAxes.set(x, y);
+  }
+
+  setTouchJumpPressed(v) {
+    this._touchJumpPressed = !!v;
+  }
+
+  tryInteractBreak() {
+    if (this.paused || !this.raycastHit) return;
+    if (!this.isCreative()) {
+      this.setBreakHeld(true);
+      return;
+    }
+    const now = performance.now();
+    if (now - this._lastBreakAt < this.breakCooldownMs) return;
+    this._lastBreakAt = now;
+    this.breakBlockAt(this.raycastHit.x, this.raycastHit.y, this.raycastHit.z);
+  }
+
+  tryInteractPlace() {
+    if (this.paused || !this.raycastHit) return;
+    const now = performance.now();
+    if (now - this._lastPlaceAt < this.placeCooldownMs) return;
+    this._lastPlaceAt = now;
+    const sel = this.getSelectedBlockType();
+    if (!sel) return;
+    const f = this.raycastHit.face;
+    const ax = this.raycastHit.x + f.x;
+    const ay = this.raycastHit.y + f.y;
+    const az = this.raycastHit.z + f.z;
+    this.placeBlockAt(ax, ay, az, sel);
+  }
+
+  /** Same as keyboard F — creative fly mode. */
+  toggleFlyMode() {
+    this.flyMode = !this.flyMode;
+    if (this.flyMode) {
+      this.onGround = false;
+      this.vel.y = 0;
+    }
   }
 
   _collidesAt(posX, posY, posZ, height) {
@@ -364,7 +512,7 @@ export class PlayerController {
       } else {
         // Gravity
         this.vel.y += this.gravity * dt;
-        if (this.onGround && this.jumpPressed) {
+        if (this.onGround && (this.jumpPressed || this._touchJumpPressed)) {
           this.vel.y = this.jumpVel;
           this.onGround = false;
           this.crouching = false;
@@ -411,9 +559,18 @@ export class PlayerController {
 
   update(timeMs, deltaTime) {
     if (this.paused) return;
-    if (!this.pointerLocked) return;
+    if (!this.pointerLocked && !this._touchGameplayActive) return;
 
     const dt = Math.min(deltaTime, 0.05);
+
+    // Touch canvas look: apply accumulated deltas (iOS / no pointer lock).
+    if (this._touchGameplayActive && (this._touchCanvasAccX !== 0 || this._touchCanvasAccY !== 0)) {
+      this.yaw -= this._touchCanvasAccX * this._touchLookSensitivity;
+      this.pitch -= this._touchCanvasAccY * this._touchLookSensitivity;
+      this.pitch = clamp(this.pitch, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01);
+      this._touchCanvasAccX = 0;
+      this._touchCanvasAccY = 0;
+    }
 
     // Raycast + highlight
     const dir = getRayDirectionFromYawPitch(this.yaw, this.pitch).normalize();
@@ -428,6 +585,51 @@ export class PlayerController {
       this._highlight.visible = true;
     } else {
       this._highlight.visible = false;
+      if (!this.isCreative()) this.setBreakHeld(false);
+    }
+
+    // Survival: hold LMB to mine (progress ring color).
+    if (
+      !this.paused &&
+      !this.isCreative() &&
+      this._breakHeld &&
+      this.raycastHit &&
+      (this.pointerLocked || this._touchGameplayActive)
+    ) {
+      const hx = this.raycastHit.x;
+      const hy = this.raycastHit.y;
+      const hz = this.raycastHit.z;
+      const t = this.world.getBlock(hx, hy, hz);
+      if (
+        !this._miningAt ||
+        this._miningAt.x !== hx ||
+        this._miningAt.y !== hy ||
+        this._miningAt.z !== hz ||
+        this._miningAt.type !== t
+      ) {
+        this._miningAt = { x: hx, y: hy, z: hz, type: t };
+        this._miningProgress = 0;
+      }
+      const secs = this.getBreakTimeSeconds(t);
+      if (secs >= 500) {
+        this._miningProgress = 0;
+      } else {
+        this._miningProgress += dt / secs;
+        const p = Math.min(1, this._miningProgress);
+        this._highlightMat.color.setRGB(0.25 + p * 0.75, 1 - p * 0.72, 0.2);
+        if (this._miningProgress >= 1) {
+          this.breakBlockAt(hx, hy, hz);
+          this._miningAt = null;
+          this._miningProgress = 0;
+          this._highlightMat.color.setHex(0x7cff6b);
+        }
+      }
+    } else if (!this.isCreative()) {
+      if (!this._breakHeld && this._highlightMat) {
+        this._miningAt = null;
+        this._miningProgress = 0;
+        this._highlightMat.color.setHex(0x7cff6b);
+      }
     }
 
     // Move + collisions
@@ -439,7 +641,8 @@ export class PlayerController {
         this.keys.has('KeyW') ||
         this.keys.has('KeyS') ||
         this.keys.has('KeyA') ||
-        this.keys.has('KeyD');
+        this.keys.has('KeyD') ||
+        this._touchAxes.lengthSq() > 0.04;
       if (moving && timeMs >= this._nextWalkTickAt) {
         const interval = this.crouching ? 300 : this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') ? 160 : 230;
         this._nextWalkTickAt = timeMs + interval;
@@ -450,7 +653,12 @@ export class PlayerController {
     // Head bob while walking (no bob in fly mode)
     let bob = 0;
     if (!this.flyMode && this.onGround) {
-      const moving = this.keys.has('KeyW') || this.keys.has('KeyS') || this.keys.has('KeyA') || this.keys.has('KeyD');
+      const moving =
+        this.keys.has('KeyW') ||
+        this.keys.has('KeyS') ||
+        this.keys.has('KeyA') ||
+        this.keys.has('KeyD') ||
+        this._touchAxes.lengthSq() > 0.04;
       if (moving) {
         const speedFactor = this.crouching
           ? this.walkSpeed * this.sneakSpeedFactor
@@ -480,7 +688,10 @@ export class PlayerController {
 
   setPaused(paused) {
     this.paused = paused;
-    if (paused) this._highlight.visible = false;
+    if (paused) {
+      this._highlight.visible = false;
+      this.setBreakHeld(false);
+    }
   }
 }
 

@@ -1,3 +1,5 @@
+import { applyKidsMode, getKidsMode, setKidsMode } from './KidsMode.js';
+
 function ensureStyle() {
   if (document.getElementById('main-menu-style')) return;
   const style = document.createElement('style');
@@ -173,6 +175,24 @@ function ensureStyle() {
       text-align:center;
       opacity: 0.9;
     }
+    .main-menu__kids{
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-top: 0.35rem;
+      user-select: none;
+      cursor: pointer;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.42rem;
+      color: #c4b59a;
+      line-height: 1.7;
+    }
+    .main-menu__kids input{
+      width: 18px;
+      height: 18px;
+      accent-color: #ffd54f;
+      cursor: pointer;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -262,7 +282,19 @@ export class MainMenu {
 
     buttons.append(play, challenges, characters, about);
 
-    content.append(top, subtitle, buttons);
+    const kidsRow = document.createElement('label');
+    kidsRow.className = 'main-menu__kids';
+    const kidsCheckbox = document.createElement('input');
+    kidsCheckbox.type = 'checkbox';
+    kidsCheckbox.checked = getKidsMode();
+    kidsCheckbox.addEventListener('change', () => {
+      setKidsMode(kidsCheckbox.checked);
+    });
+    const kidsSpan = document.createElement('span');
+    kidsSpan.textContent = 'Bigger text (easier for kids)';
+    kidsRow.append(kidsCheckbox, kidsSpan);
+
+    content.append(top, subtitle, kidsRow, buttons);
 
     // Save Slots UI (Prompt 8)
     const saveRow = document.createElement('div');

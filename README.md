@@ -27,6 +27,35 @@ npm run build    # production build → dist/
 npm run preview  # serve dist locally
 ```
 
+## Mobile / tablet
+
+On a touch device (or coarse pointer), after you press **Play** and enter a world you get:
+
+- **Drag on the right side** — look around
+- **Joystick** (lower left) — move
+- **Jump**, **Break**, **Place**, **Fly** — large buttons (building without a mouse; Fly matches keyboard `F` creative mode)
+- **Swipe left/right on the hotbar** — change block type (same idea as the mouse wheel)
+
+The main menu and world pickers work with normal taps.
+
+### Bigger text (kids)
+
+On the main menu, turn on **Bigger text (easier for kids)**. The choice is saved in your browser (`localStorage`) and scales up menus, HUD, hotbar, and touch buttons.
+
+## iOS app (Capacitor)
+
+The repo includes Capacitor config so you can wrap the built site as a native iOS project (for TestFlight / App Store). You need **Xcode** on a Mac.
+
+```bash
+npm install
+npm run build
+npx cap add ios
+npm run cap:sync
+npm run cap:ios
+```
+
+Then set your **signing team** in Xcode, pick a device or simulator, and run. The web assets live under `dist/` and are copied into the iOS app on `cap sync`.
+
 ## Controls (gameplay)
 
 - **Click** the game canvas — pointer lock (mouse look)
