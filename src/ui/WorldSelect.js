@@ -1,4 +1,4 @@
-import { WORLD_PRESETS } from '../world/BibleWorlds.js';
+import { WORLD_PRESETS, resolveWorldId } from '../world/BibleWorlds.js';
 
 function ensureStyle() {
   if (document.getElementById('world-select-style')) return;
@@ -32,7 +32,7 @@ function ensureStyle() {
     .world-select__header{
       display:flex;
       align-items:center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 1rem;
       margin-bottom: 0.75rem;
     }
@@ -50,6 +50,7 @@ function ensureStyle() {
       line-height: 1.7;
       max-width: 38ch;
       text-align: right;
+      margin-left: auto;
     }
     .world-select__grid{
       display:grid;
@@ -140,7 +141,9 @@ function drawPreview(canvas, worldId) {
     ctx.fillRect(x * pxSize, y * pxSize, pxSize, pxSize);
   }
 
-  if (worldId === 'garden') {
+  const id = resolveWorldId(worldId);
+
+  if (id === 'garden') {
     // Sun
     for (let x = 1; x <= 3; x++) pixel(x, 2, '#ffd54f');
     pixel(5, 1, '#fff9c4');
@@ -158,9 +161,12 @@ function drawPreview(canvas, worldId) {
         pixel(5 + dx, 2 + dz, '#43a047');
       }
     }
-    // River line
-    for (let x = 1; x < gridW - 1; x++) pixel(x, 7, '#1e88e5');
-  } else if (worldId === 'desert') {
+    for (let x = 1; x < gridW - 1; x++) {
+      const ry = 7 + Math.floor(Math.sin(x / 2.8) * 0.55);
+      pixel(x, ry, '#1e88e5');
+      if (ry + 1 < gridH) pixel(x, ry + 1, '#1565c0');
+    }
+  } else if (id === 'moses') {
     // Sun
     for (let x = 2; x <= 6; x++) pixel(x, 2, '#ffca28');
     for (let y = 1; y <= 3; y++) pixel(5, y, '#fff9c4');
@@ -179,9 +185,17 @@ function drawPreview(canvas, worldId) {
       pixel(gridW - 2, z, '#1565c0');
       if (z % 2 === 0) pixel(Math.floor(gridW / 2), z, '#e8d5a8');
     }
-  } else if (worldId === 'ark') {
-    // Water base
-    for (let x = 0; x < gridW; x++) for (let y = 9; y < gridH; y++) pixel(x, y, '#1e88e5');
+  } else if (id === 'noah') {
+    // Water with depth / wave pattern + distant islet (matches varied ocean in-game)
+    for (let x = 0; x < gridW; x++) {
+      for (let y = 4; y < gridH; y++) {
+        const wave = Math.sin(x / 2.2 + y / 2.8) > 0;
+        pixel(x, y, wave ? '#1e88e5' : '#1565c0');
+      }
+    }
+    pixel(2, 10, '#5cb85c');
+    pixel(3, 10, '#5cb85c');
+    pixel(1, 10, '#e8d5a8');
     // Ark hull
     for (let x = 2; x < 10; x++) for (let y = 6; y < 9; y++) pixel(x, y, '#7a5545');
     for (let x = 4; x < 8; x++) pixel(x, 5, '#5d4037');
@@ -189,7 +203,7 @@ function drawPreview(canvas, worldId) {
     for (let i = 0; i < 6; i++) for (let x = 6 - i; x <= 7 - i; x++) pixel(x, 8 - i, '#6d4c41');
     // Storm clouds
     for (let x = 1; x <= 6; x++) for (let y = 1; y <= 3; y++) if (x + y < 7) pixel(x, y, '#9e9e9e');
-  } else if (worldId === 'david') {
+  } else if (id === 'david') {
     // Valley
     for (let x = 0; x < gridW; x++) {
       const y = 10 + Math.floor(Math.abs(x - gridW / 2) / 3);
@@ -211,6 +225,67 @@ function drawPreview(canvas, worldId) {
     }
     // Goliath silhouette
     for (let y = 1; y < 12; y++) pixel(12, y, '#7b7b7b');
+  } else if (id === 'mary') {
+    for (let x = 0; x < gridW; x++) {
+      const y = 9 + Math.floor(Math.sin(x / 3) * 0.8);
+      pixel(x, y, '#5cb85c');
+    }
+    for (let x = 4; x < 10; x++) for (let y = 5; y < 9; y++) pixel(x, y, '#7a5545');
+    for (let x = 2; x < 6; x++) for (let y = 3; y < 6; y++) pixel(x, y, '#43a047');
+  } else if (id === 'daniel') {
+    for (let x = 0; x < gridW; x++) for (let y = 8; y < gridH; y++) pixel(x, y, '#e8d5a8');
+    for (let layer = 0; layer < 3; layer++) {
+      const r = 3 - layer;
+      for (let dx = -r; dx <= r; dx++) {
+        for (let dy = -r; dy <= r; dy++) {
+          if (Math.abs(dx) === r || Math.abs(dy) === r) {
+            pixel(6 + dx, 5 - layer + dy, '#9e9e9e');
+          }
+        }
+      }
+    }
+    pixel(6, 2, '#ffd54f');
+    for (let x = 1; x <= 3; x++) for (let y = 10; y < 13; y++) pixel(x, y, '#43a047');
+  } else if (id === 'esther') {
+    for (let x = 0; x < gridW; x++) {
+      pixel(x, gridH - 3, '#5cb85c');
+      if (x % 2 === 0) pixel(x, gridH - 4, '#4a7c3f');
+    }
+    for (let x = 2; x < gridW - 2; x++) for (let z = 6; z < gridH - 2; z++) pixel(x, z, '#ffd54f');
+    for (let x = 3; x < gridW - 3; x += 5) for (let y = 3; y < 7; y++) pixel(x, y, '#7a5545');
+    for (let x = 8; x <= 10; x++) for (let z = 7; z <= 9; z++) pixel(x, z, '#ffc107');
+  } else if (id === 'jonah') {
+    for (let x = 0; x < 8; x++) for (let z = 8; z < gridH; z++) pixel(x, z, '#5cb85c');
+    for (let x = 8; x < gridW; x++) for (let z = 8; z < gridH; z++) pixel(x, z, '#1565c0');
+    for (let x = 6; x < 14; x++) for (let z = 9; z < 11; z++) pixel(x, z, '#7a5545');
+    for (let x = 1; x <= 5; x++) for (let y = 1; y <= 2; y++) if (x + y < 7) pixel(x, y, '#9e9e9e');
+  } else if (id === 'joshua') {
+    for (let x = 0; x < gridW; x++) for (let z = 8; z < gridH; z++) pixel(x, z, '#5cb85c');
+    const cx = 12;
+    const cz = 10;
+    for (let x = 0; x < gridW; x++) {
+      for (let z = 0; z < gridH; z++) {
+        const dx = x - cx;
+        const dz = z - cz;
+        const d = Math.sqrt(dx * dx + dz * dz);
+        if (d > 5 && d < 7 && !(dz > 3 && Math.abs(dx) < 2)) pixel(x, z, '#9e9e9e');
+      }
+    }
+    pixel(cx, cz, '#e8d5a8');
+  } else if (id === 'caleb') {
+    for (let x = 0; x < gridW; x++) {
+      const y = 10 + Math.floor(Math.abs(x - gridW / 2) / 4);
+      pixel(x, y, '#5cb85c');
+    }
+    for (let x = 4; x < gridW - 4; x += 2) pixel(x, 9, '#43a047');
+    for (let x = 4; x < gridW - 4; x += 2) pixel(x + 1, 9, '#ffc107');
+    pixel(10, 7, '#ffc107');
+    for (let y = 2; y < 8; y++) pixel(2, y, '#9e9e9e');
+  } else {
+    for (let x = 0; x < gridW; x++) {
+      const y = 10 + Math.floor(Math.sin(x / 4) * 0.5);
+      pixel(x, y, '#5cb85c');
+    }
   }
 }
 

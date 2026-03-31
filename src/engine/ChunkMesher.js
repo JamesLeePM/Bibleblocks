@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { CHUNK_SIZE } from './VoxelWorld.js';
 import { getUVRectForBlock } from '../assets/TextureAtlas.js';
+import { isBlockTransparent } from './BlockRegistry.js';
+import { isIOSWebKit } from './platform.js';
 
 const AIR = 0;
 
@@ -14,7 +16,7 @@ function isSolid(type) {
 }
 
 function isTransparentType(type) {
-  return type === 5;
+  return isBlockTransparent(type);
 }
 
 function createGeoBuffers() {
@@ -30,37 +32,18 @@ function createGeoBuffers() {
  * mask[i][j]: block type or 0. Width grows along +j, height along +i.
  * @param {number[][]} mask
  * @param {(i:number, j:number, w:number, h:number, type:number) => void} emit
+ *
+ * Greedy merging is disabled: merged quads stretched UVs across multiple atlas
+ * tiles (256×256 sheet). RepeatWrapping repeats the whole atlas, not one tile,
+ * which broke ground/walls on iOS (black + colored grid) and looked wrong on desktop.
  */
 function greedyMerge2D(mask, emit) {
   for (let i = 0; i < CHUNK_SIZE; i++) {
     for (let j = 0; j < CHUNK_SIZE; j++) {
       const t = mask[i][j];
       if (t === 0) continue;
-
-      let w = 1;
-      while (j + w < CHUNK_SIZE && mask[i][j + w] === t) {
-        w++;
-      }
-
-      let h = 1;
-      let ok = true;
-      while (ok && i + h < CHUNK_SIZE) {
-        for (let k = 0; k < w; k++) {
-          if (mask[i + h][j + k] !== t) {
-            ok = false;
-            break;
-          }
-        }
-        if (ok) h++;
-      }
-
-      emit(i, j, w, h, t);
-
-      for (let hh = 0; hh < h; hh++) {
-        for (let ww = 0; ww < w; ww++) {
-          mask[i + hh][j + ww] = 0;
-        }
-      }
+      emit(i, j, 1, 1, t);
+      mask[i][j] = 0;
     }
   }
 }
@@ -482,34 +465,54 @@ export function meshChunk(world, cx, cy, cz, atlasTexture) {
   const group = new THREE.Group();
   group.name = `chunk_${cx}_${cy}_${cz}`;
 
-  const opaqueMat = new THREE.MeshStandardMaterial({
-    map: atlasTexture,
-    roughness: 0.92,
-    metalness: 0.05,
-    side: THREE.FrontSide,
-  });
+  const allowShadow =
+    typeof navigator !== 'undefined' && !isIOSWebKit();
 
-  const transMat = new THREE.MeshStandardMaterial({
-    map: atlasTexture,
-    roughness: 0.85,
-    metalness: 0.05,
-    transparent: true,
-    opacity: 0.65,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
+  const ios = isIOSWebKit();
+  // MeshStandardMaterial + iOS WebGL/Metal often renders terrain dark or nearly black.
+  const opaqueMat = ios
+    ? new THREE.MeshLambertMaterial({
+        map: atlasTexture,
+        color: 0xffffff,
+        side: THREE.FrontSide,
+      })
+    : new THREE.MeshStandardMaterial({
+        map: atlasTexture,
+        roughness: 0.88,
+        metalness: 0.04,
+        side: THREE.FrontSide,
+      });
+
+  const transMat = ios
+    ? new THREE.MeshLambertMaterial({
+        map: atlasTexture,
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.78,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    : new THREE.MeshStandardMaterial({
+        map: atlasTexture,
+        roughness: 0.82,
+        metalness: 0.04,
+        transparent: true,
+        opacity: 0.78,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
 
   if (opaque.positions.length > 0) {
     const mesh = new THREE.Mesh(geoToBufferGeometry(opaque), opaqueMat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    mesh.castShadow = allowShadow;
+    mesh.receiveShadow = allowShadow;
     group.add(mesh);
   }
 
   if (transparent.positions.length > 0) {
     const mesh = new THREE.Mesh(geoToBufferGeometry(transparent), transMat);
     mesh.castShadow = false;
-    mesh.receiveShadow = true;
+    mesh.receiveShadow = allowShadow;
     group.add(mesh);
   }
 

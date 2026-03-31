@@ -22,6 +22,19 @@ const BLOCK_TO_TILE = {
   7: [7, 0],
   8: [0, 0],
   9: [8, 0],
+  10: [0, 1],
+  11: [1, 1],
+  12: [2, 1],
+  13: [3, 1],
+  14: [4, 1],
+  15: [5, 1],
+  16: [6, 1],
+  17: [7, 1],
+  18: [8, 1],
+  19: [9, 1],
+  20: [10, 1],
+  21: [11, 1],
+  22: [12, 1],
 };
 
 /** Cached atlas canvas to reuse for UI icons and texture creation. */
@@ -61,6 +74,20 @@ export function getAtlasCanvas() {
   drawTile(ctx, 6, 0, (c) => drawGold(c));
   drawTile(ctx, 7, 0, (c) => drawBread(c));
   drawTile(ctx, 8, 0, (c) => drawDirt(c));
+
+  drawTile(ctx, 0, 1, (c) => drawCobble(c));
+  drawTile(ctx, 1, 1, (c) => drawPlanks(c));
+  drawTile(ctx, 2, 1, (c) => drawBrick(c));
+  drawTile(ctx, 3, 1, (c) => drawGlass(c));
+  drawTile(ctx, 4, 1, (c) => drawSandstone(c));
+  drawTile(ctx, 5, 1, (c) => drawMarble(c));
+  drawTile(ctx, 6, 1, (c) => drawClayBlock(c));
+  drawTile(ctx, 7, 1, (c) => drawBookshelf(c));
+  drawTile(ctx, 8, 1, (c) => drawMossyStone(c));
+  drawTile(ctx, 9, 1, (c) => drawPolishedStone(c));
+  drawTile(ctx, 10, 1, (c) => drawPackedEarth(c));
+  drawTile(ctx, 11, 1, (c) => drawReed(c));
+  drawTile(ctx, 12, 1, (c) => drawOilLamp(c));
 
   cachedAtlasCanvas = canvas;
   return cachedAtlasCanvas;
@@ -284,6 +311,152 @@ function drawDirt(c) {
   }
 }
 
+function drawCobble(c) {
+  const base = '#757575';
+  const dark = '#424242';
+  const light = '#9e9e9e';
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      let col = base;
+      if ((x + y * 3) % 5 === 0) col = dark;
+      if ((x * y) % 7 === 2) col = light;
+      px(c, x, y, col);
+    }
+  }
+}
+
+function drawPlanks(c) {
+  for (let y = 0; y < 16; y++) {
+    const row = Math.floor(y / 4);
+    const shade = row % 2 ? '#8d6e63' : '#a1887f';
+    for (let x = 0; x < 16; x++) {
+      let col = shade;
+      if (x % 4 === 0) col = '#5d4037';
+      px(c, x, y, col);
+    }
+  }
+}
+
+function drawBrick(c) {
+  for (let y = 0; y < 16; y++) {
+    const row = Math.floor(y / 5);
+    for (let x = 0; x < 16; x++) {
+      const brick = (x + row) % 8 < 6 ? '#b71c1c' : '#8d1a1a';
+      px(c, x, y, x % 8 === 7 ? '#3e2723' : brick);
+    }
+  }
+}
+
+function drawGlass(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      const edge = x < 2 || y < 2 || x > 13 || y > 13;
+      px(c, x, y, edge ? '#81d4fa' : '#b3e5fc');
+    }
+  }
+}
+
+function drawSandstone(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      let col = '#d7ccc8';
+      if ((x + y) % 4 === 0) col = '#bcaaa4';
+      if (y % 6 === 0) col = '#a1887f';
+      px(c, x, y, col);
+    }
+  }
+}
+
+function drawMarble(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      let col = '#eceff1';
+      if ((x * 3 + y * 5) % 11 < 2) col = '#cfd8dc';
+      if ((x - y) % 9 === 0) col = '#b0bec5';
+      px(c, x, y, col);
+    }
+  }
+}
+
+function drawClayBlock(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      px(c, x, y, (x + y) % 3 ? '#bcaaa4' : '#a1887f');
+    }
+  }
+}
+
+function drawBookshelf(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      const shelf = y === 4 || y === 5 || y === 11 || y === 12;
+      px(c, x, y, shelf ? '#5d4037' : '#795548');
+    }
+  }
+  for (let x = 1; x < 15; x += 3) {
+    px(c, x, 2, '#3e2723');
+    px(c, x, 8, '#3e2723');
+    px(c, x, 14, '#3e2723');
+  }
+}
+
+function drawMossyStone(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      let col = '#78909c';
+      if ((x * y + 3) % 7 < 2) col = '#558b2f';
+      if ((x + y) % 5 === 0) col = '#546e7a';
+      px(c, x, y, col);
+    }
+  }
+}
+
+function drawPolishedStone(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      px(c, x, y, (x + y) % 2 ? '#90a4ae' : '#78909c');
+    }
+  }
+}
+
+function drawPackedEarth(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      px(c, x, y, (x * 7 + y * 3) % 5 < 2 ? '#6d4c41' : '#5d4037');
+    }
+  }
+}
+
+function drawReed(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      const stem = x === 7 || x === 8;
+      px(c, x, y, stem ? '#689f38' : '#c5e1a5');
+    }
+  }
+}
+
+function drawOilLamp(c) {
+  for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 16; y++) {
+      const body = x > 4 && x < 12 && y > 6 && y < 14;
+      const flame = x > 6 && x < 10 && y > 2 && y < 7;
+      if (flame) px(c, x, y, '#ffca28');
+      else if (body) px(c, x, y, '#795548');
+      else px(c, x, y, '#5d4037');
+    }
+  }
+}
+
+/**
+ * @param {import('three').CanvasTexture} tex
+ */
+function applySmoothAtlasSampling(tex) {
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+}
+
 /**
  * @returns {THREE.CanvasTexture}
  */
@@ -291,13 +464,22 @@ export function getAtlasTexture() {
   if (cachedAtlasTexture) return cachedAtlasTexture;
   const canvas = getAtlasCanvas();
   const tex = new THREE.CanvasTexture(canvas);
-  tex.magFilter = THREE.NearestFilter;
-  tex.minFilter = THREE.NearestFilter;
+  applySmoothAtlasSampling(tex);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.generateMipmaps = false;
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
   cachedAtlasTexture = tex;
   return cachedAtlasTexture;
+}
+
+/**
+ * After the WebGL renderer exists, improves angled surfaces (reduces blur at a distance).
+ * @param {import('three').WebGLRenderer} renderer
+ */
+export function applyAtlasAnisotropy(renderer) {
+  const tex = getAtlasTexture();
+  const max = renderer.capabilities.getMaxAnisotropy();
+  tex.anisotropy = Math.min(8, max);
+  tex.needsUpdate = true;
 }
